@@ -1,9 +1,4 @@
 # 📄 Paperwise - AI Document Intelligence Platform
-
-![Paperwise](https://img.shields.io/badge/Paperwise-AI%20Document%20Processing-blue)
-![React](https://img.shields.io/badge/React-18.2+-61DAFB?logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript)
-
 A modern, AI-powered document analysis platform that transforms lengthy documents into actionable insights. Upload, summarize, and interact with your documents using advanced AI technology.
 
 ## ✨ Features
@@ -16,17 +11,11 @@ A modern, AI-powered document analysis platform that transforms lengthy document
 - **🎨 Modern UI/UX** - Beautiful, responsive design with dark/light mode
 - **⚡ Real-time Processing** - Instant AI responses and document insights
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
+#Installation
 
 
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/paperwise.git
+git clone https://github.com/iamjatinn/paperwise.git
 
 # Navigate to project directory
 cd paperwise
@@ -36,7 +25,6 @@ npm install
 
 # Start development server
 npm run dev
-Open http://localhost:8080 to view it in the browser.
 
 🛠 Tech Stack
 Frontend: React 18 + TypeScript

@@ -40,20 +40,37 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
+      {/* Hero Section with Large Paperwise Title */}
       <section className="pt-32 pb-20 px-4 relative overflow-hidden">
         <div className="absolute inset-0 gradient-hero opacity-10 blur-3xl"></div>
         <div className="container mx-auto text-center relative z-10">
+          {/* Large Paperwise Title */}
+          <div className="mb-16 animate-fade-in">
+            <h1 className="text-8xl md:text-9xl font-bold mb-8 bg-gradient-to-r from-primary via-purple-600 to-blue-600 bg-clip-text text-transparent tracking-tight">
+              PAPERWISE
+            </h1>
+            <p className="text-2xl md:text-3xl text-muted-foreground max-w-4xl mx-auto font-light">
+              Intelligent Document Processing & Analysis
+            </p>
+          </div>
+
           <div className="animate-slide-up">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-hero bg-clip-text text-transparent">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-hero bg-clip-text text-transparent">
               Document Intelligence
               <br />
               Powered by AI
-            </h1>
+            </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              Transform lengthy documents into actionable insights. Upload, summarize, and interact with your documents using advanced AI technology.
+              Transform lengthy documents into actionable insights. Upload,
+              summarize, and interact with your documents using advanced AI
+              technology.
             </p>
             <div className="flex gap-4 justify-center">
-              <Button asChild size="lg" className="gradient-primary text-white border-0 hover:opacity-90 glow-effect">
+              <Button
+                asChild
+                size="lg"
+                className="gradient-primary text-white border-0 hover:opacity-90 glow-effect"
+              >
                 <Link to="/auth">Start Analyzing</Link>
               </Button>
               <Button asChild size="lg" variant="outline">
@@ -73,11 +90,11 @@ export default function Home() {
               Everything you need to understand and interact with your documents
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((feature, index) => (
-              <Card 
-                key={index} 
+              <Card
+                key={index}
                 className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-scale-in border-border/50 bg-card"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
@@ -101,7 +118,7 @@ export default function Home() {
               Simple, powerful, and intelligent
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             <div className="text-center">
               <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 glow-effect">
@@ -112,7 +129,7 @@ export default function Home() {
                 Upload your DOCX, PDF, or TXT file to get started
               </p>
             </div>
-            
+
             <div className="text-center">
               <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 glow-effect">
                 2
@@ -122,7 +139,7 @@ export default function Home() {
                 Our AI analyzes and creates section-wise summaries
               </p>
             </div>
-            
+
             <div className="text-center">
               <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 glow-effect">
                 3
@@ -142,9 +159,14 @@ export default function Home() {
         <div className="container mx-auto text-center relative z-10">
           <h2 className="text-4xl font-bold mb-4">Ready to Get Started?</h2>
           <p className="text-muted-foreground text-lg mb-8 max-w-2xl mx-auto">
-            Transform the way you work with documents. Start analyzing and understanding your documents in seconds.
+            Transform the way you work with documents. Start analyzing and
+            understanding your documents in seconds.
           </p>
-          <Button asChild size="lg" className="gradient-primary text-white border-0 hover:opacity-90 glow-effect">
+          <Button
+            asChild
+            size="lg"
+            className="gradient-primary text-white border-0 hover:opacity-90 glow-effect"
+          >
             <Link to="/upload">Upload Your First Document</Link>
           </Button>
         </div>

@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { 
-  FileText, 
-  Send, 
-  Download, 
-  Share2, 
+import {
+  FileText,
+  Send,
+  Download,
+  Share2,
   MessageSquare,
   Sparkles,
   Volume2,
@@ -16,11 +16,13 @@ import {
   Pause,
   Play,
   Mic,
-  MicOff
+  MicOff,
 } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom"; // Added useNavigate
 import { useToast } from "@/hooks/use-toast";
-import { useDocumentSummary } from "@/hooks/useDocumentSummary";
+import { useDocumentSummary } from "@/hooks/useDocumentSummary"; // Assuming this hook is correctly defined
+
+// --- INTERFACE DEFINITIONS (Moved up for clarity) ---
 
 interface Message {
   role: "user" | "assistant";
@@ -39,75 +41,64 @@ interface Document {
   total_chunks?: number;
 }
 
-// Standalone Voice Agent Component - Completely isolated
-const VoiceAgent = ({ 
-  onQuestion, 
-  disabled, 
-  id,
+// --- FIXED VOICE AGENT COMPONENT ---
+
+const VoiceAgent = ({
+  onQuestion,
+  disabled,
   onVoiceCommand,
   isSpeaking,
-  isPaused
-}: { 
-  onQuestion: (question: string) => void; 
+  isPaused,
+}: {
+  onQuestion: (question: string) => void;
   disabled: boolean;
-  id: string;
   onVoiceCommand: (command: string) => void;
   isSpeaking: boolean;
   isPaused: boolean;
 }) => {
   const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const recognitionRef = useRef<any>(null);
+  const [transcript, setTranscript] = useState("");
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { toast } = useToast();
 
-  // Voice commands mapping
-  const voiceCommands = {
-    'pause': 'pause',
-    'play': 'play', 
-    'resume': 'play',
-    'stop': 'stop',
-    'halt': 'stop',
-    'end': 'stop',
-    'summarize': 'summarize',
-    'summary': 'summarize',
-    'explain': 'explain',
-    'what is this': 'what_is_this',
-    'what is this about': 'what_is_this',
-    'tell me about this': 'what_is_this',
-    'clear': 'clear',
-    'help': 'help'
+  const voiceCommands: { [key: string]: string } = {
+    pause: "pause",
+    play: "play",
+    resume: "play",
+    stop: "stop",
+    halt: "stop",
+    end: "stop",
+    summarize: "summarize",
+    summary: "summarize",
+    explain: "explain",
+    "what is this": "what_is_this",
+    "what is this about": "what_is_this",
+    "tell me about this": "what_is_this",
+    clear: "clear",
+    help: "help",
   };
 
-  // Check if text contains a voice command
-  const processVoiceCommand = (text: string): boolean => {
-    const cleanText = text.toLowerCase().trim();
-    
-    // Check for exact matches first
-    for (const [phrase, command] of Object.entries(voiceCommands)) {
-      if (cleanText === phrase) {
-        console.log(`🎯 Voice command detected: ${command}`);
-        onVoiceCommand(command);
-        return true;
+  const processVoiceCommand = useCallback(
+    (text: string): boolean => {
+      const cleanText = text.toLowerCase().trim();
+
+      for (const [phrase, command] of Object.entries(voiceCommands)) {
+        if (cleanText === phrase || cleanText.startsWith(phrase + " ")) {
+          console.log(`🎯 Voice command detected: ${command}`);
+          onVoiceCommand(command);
+          return true;
+        }
       }
-    }
+      return false;
+    },
+    [onVoiceCommand]
+  );
 
-    // Check for partial matches
-    for (const [phrase, command] of Object.entries(voiceCommands)) {
-      if (cleanText.includes(phrase)) {
-        console.log(`🎯 Voice command detected (partial): ${command}`);
-        onVoiceCommand(command);
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  // Initialize speech recognition
   const initializeRecognition = useCallback(() => {
-    if (typeof window === 'undefined') return null;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       toast({
         title: "Voice not supported",
@@ -118,23 +109,25 @@ const VoiceAgent = ({
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = false; // Single utterance mode
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = "en-US";
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
       setIsListening(true);
-      console.log('🎤 Voice recognition started');
+      setTranscript("");
+      console.log("🎤 Voice recognition started");
     };
 
-    recognition.onresult = (event: any) => {
-      let finalTranscript = '';
-      let interimTranscript = '';
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const text = result[0].transcript;
-        
+
         if (result.isFinal) {
           finalTranscript += text;
         } else {
@@ -147,29 +140,25 @@ const VoiceAgent = ({
         setTranscript(currentTranscript.trim());
       }
 
-      // Check for voice commands in final results
-      if (finalTranscript.trim() && finalTranscript.trim().length > 1) {
-        const isCommand = processVoiceCommand(finalTranscript.trim());
-        
-        if (isCommand) {
-          // It was a command, don't send as question
-          setTranscript('');
-          console.log('✅ Processed as voice command');
-        } else {
-          // It's a regular question, send it
-          console.log('🚀 Auto-sending question:', finalTranscript.trim());
-          onQuestion(finalTranscript.trim());
-          setTranscript('');
+      if (finalTranscript.trim()) {
+        const finalCleanText = finalTranscript.trim();
+        const isCommand = processVoiceCommand(finalCleanText);
+
+        if (!isCommand) {
+          onQuestion(finalCleanText);
         }
+
+        setTranscript("");
       }
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      if (event.error === 'not-allowed') {
+      console.error("Speech recognition error:", event.error);
+      if (event.error === "not-allowed") {
         toast({
           title: "Microphone blocked",
-          description: "Please allow microphone access in your browser settings.",
+          description:
+            "Please allow microphone access in your browser settings.",
           variant: "destructive",
         });
       }
@@ -177,27 +166,21 @@ const VoiceAgent = ({
     };
 
     recognition.onend = () => {
-      console.log('🎤 Voice recognition ended');
+      console.log("🎤 Voice recognition ended");
       setIsListening(false);
-      // Auto-restart after a short delay
-      setTimeout(() => {
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.start();
-          } catch (error) {
-            console.log('Recognition already started');
-          }
-        }
-      }, 1000);
     };
 
     return recognition;
-  }, [onQuestion, toast, onVoiceCommand]);
+  }, [onQuestion, toast, processVoiceCommand]);
 
   const startListening = useCallback(async () => {
+    if (recognitionRef.current && isListening) {
+      return;
+    }
+
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
       if (!recognitionRef.current) {
         recognitionRef.current = initializeRecognition();
       }
@@ -206,38 +189,39 @@ const VoiceAgent = ({
         recognitionRef.current.start();
         toast({
           title: "🎤 Voice Agent Started",
-          description: "I'm listening. Say 'pause', 'play', 'stop', or ask questions.",
+          description: "I'm listening. Ask a question or say a command.",
+          duration: 3000,
         });
       }
     } catch (error) {
-      console.error('Microphone permission denied:', error);
+      console.error("Microphone permission denied:", error);
       toast({
         title: "Microphone access required",
         description: "Please allow microphone access to use voice features.",
         variant: "destructive",
       });
     }
-  }, [initializeRecognition, toast]);
+  }, [initializeRecognition, toast, isListening]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
+    if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
     }
-    setIsListening(false);
-    setTranscript('');
-    toast({
-      title: "🎤 Voice Agent Stopped",
-      description: "Voice input has been disabled.",
-    });
-  }, [toast]);
+    setTranscript("");
+  }, [isListening]);
 
   const toggleListening = useCallback(() => {
     if (isListening) {
       stopListening();
+      toast({
+        title: "🎤 Voice Stopped",
+        description: "Voice input has been stopped.",
+        duration: 2000,
+      });
     } else {
       startListening();
     }
-  }, [isListening, startListening, stopListening]);
+  }, [isListening, startListening, stopListening, toast]);
 
   const manualSend = useCallback(() => {
     if (transcript.trim().length > 0) {
@@ -245,22 +229,20 @@ const VoiceAgent = ({
       if (!isCommand) {
         onQuestion(transcript);
       }
-      setTranscript('');
+      setTranscript("");
+      stopListening();
     }
-  }, [transcript, onQuestion]);
+  }, [transcript, onQuestion, stopListening, processVoiceCommand]);
 
-  // Auto-start on component mount
+  // Cleanup on unmount
   useEffect(() => {
-    console.log('🎤 Voice Agent mounting');
-    startListening();
-    
     return () => {
-      console.log('🎤 Voice Agent unmounting');
       if (recognitionRef.current) {
         recognitionRef.current.stop();
+        recognitionRef.current = null;
       }
     };
-  }, [startListening]);
+  }, []);
 
   return (
     <Card className="p-6 space-y-4">
@@ -281,17 +263,25 @@ const VoiceAgent = ({
       <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+            <div
+              className={`w-3 h-3 rounded-full ${
+                isListening ? "bg-green-500 animate-pulse" : "bg-red-500"
+              }`}
+            />
             <div>
               <p className="text-sm font-medium">
-                {isListening ? '🎤 Voice Input Active' : '❌ Voice Input Inactive'}
+                {isListening
+                  ? "🎤 Voice Input Active"
+                  : "❌ Voice Input Inactive"}
               </p>
               <p className="text-xs text-muted-foreground">
-                {isListening ? 'Say "pause", "play", "stop", or ask questions' : 'Click Start to activate voice input'}
+                {isListening
+                  ? "Speak your question or command"
+                  : "Click Start to activate voice"}
               </p>
             </div>
           </div>
-          
+
           <Button
             variant={isListening ? "destructive" : "default"}
             size="sm"
@@ -299,7 +289,17 @@ const VoiceAgent = ({
             className="gap-2"
             disabled={disabled}
           >
-            {isListening ? 'Stop' : 'Start Voice'}
+            {isListening ? (
+              <>
+                <MicOff className="w-4 h-4" />
+                Stop
+              </>
+            ) : (
+              <>
+                <Mic className="w-4 h-4" />
+                Start Voice
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -308,13 +308,19 @@ const VoiceAgent = ({
       {(isSpeaking || isPaused) && (
         <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${isSpeaking ? 'bg-blue-500 animate-pulse' : 'bg-amber-500'}`} />
+            <div
+              className={`w-3 h-3 rounded-full ${
+                isSpeaking ? "bg-blue-500 animate-pulse" : "bg-amber-500"
+              }`}
+            />
             <div>
               <p className="text-sm font-medium text-amber-800">
-                {isPaused ? '⏸️ Speech Paused' : '🔊 Speaking Answer'}
+                {isPaused ? "⏸️ Speech Paused" : "🔊 Speaking Answer"}
               </p>
               <p className="text-xs text-amber-600">
-                {isPaused ? 'Say "play" to resume' : 'Say "pause" or "stop" to control'}
+                {isPaused
+                  ? 'Say "play" to resume'
+                  : 'Say "pause" or "stop" to control'}
               </p>
             </div>
           </div>
@@ -360,7 +366,7 @@ const VoiceAgent = ({
             Summarize
           </Button>
         </div>
-        
+
         <div className="text-xs text-muted-foreground">
           <p className="font-medium mb-1">Voice Commands:</p>
           <div className="grid grid-cols-2 gap-1">
@@ -375,482 +381,408 @@ const VoiceAgent = ({
   );
 };
 
-// Main Document Viewer Component
+// --- MAIN DOCUMENT VIEWER COMPONENT (with TTS logic) ---
+
 export default function DocumentViewer() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // New Voice States and Ref
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const currentSpeechRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const { toast } = useToast();
-  const { generateSummary } = useDocumentSummary();
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      fetchDocument();
-      setMessages([{
-        role: "assistant",
-        content: "Hello! I've analyzed your document. Ask me anything about it!",
-      }]);
-    }
+  // Constants
+  const AI_BACKEND_URL = "http://localhost:8001";
 
-    return () => {
-      stopSpeech();
-    };
-  }, [id]);
+  // --- TTS Functions ---
+  const speakText = useCallback(
+    (text: string) => {
+      if (!synthRef.current || !voiceEnabled) return;
 
-  const fetchDocument = async () => {
-    try {
-      let storedDocuments = JSON.parse(localStorage.getItem('documents') || '[]');
-      let foundDocument = storedDocuments.find((doc: Document) => doc.id === id);
-      
-      if (!foundDocument) {
-        storedDocuments = JSON.parse(localStorage.getItem('indexedDocuments') || '[]');
-        foundDocument = storedDocuments.find((doc: Document) => doc.id === id);
-      }
-      
-      if (!foundDocument) {
-        throw new Error("Document not found");
-      }
-      
-      setDocument(foundDocument);
-    } catch (error) {
-      console.error('Error fetching document:', error);
-      toast({
-        title: "Error loading document",
-        description: "Failed to load document data. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      synthRef.current.cancel();
 
-  const handleSendMessage = async (questionToSend?: string) => {
-    const finalQuestion = questionToSend || message.trim();
-    if (!finalQuestion || sending || !id) return;
-  
-    const userMessage: Message = {
-      role: "user",
-      content: finalQuestion,
-    };
-  
-    setMessages(prev => [...prev, userMessage]);
-    if (!questionToSend) setMessage("");
-    setSending(true);
-  
-    try {
-      console.log('📤 Sending question to backend:', finalQuestion);
-      
-      const response = await fetch('http://127.0.0.1:8000/api/v1/qa/ask', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          document_id: id,
-          question: finalQuestion
-        })
-      });
-  
-      if (!response.ok) {
-        throw new Error(`Failed to get answer: ${response.status}`);
-      }
-  
-      const data = await response.json();
-      console.log('✅ Received answer:', data.answer);
-      
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.answer,
-      };
-  
-      setMessages(prev => [...prev, assistantMessage]);
-      
-      // Auto-speak the answer
-      speakAnswer(data.answer);
-      
-      // Save conversation
-      const conversation = {
-        document_id: id,
-        question: finalQuestion,
-        answer: data.answer,
-        timestamp: new Date().toISOString()
-      };
-      
-      const existingConversations = JSON.parse(localStorage.getItem('conversations') || '[]');
-      localStorage.setItem('conversations', JSON.stringify([...existingConversations, conversation]));
-      
-    } catch (error) {
-      console.error('❌ Error sending message:', error);
-      toast({
-        title: "Failed to get answer",
-        description: "Could not process your question. Please try again.",
-        variant: "destructive",
-      });
-      
-      const errorMessage: Message = {
-        role: "assistant",
-        content: "I'm sorry, I couldn't process your question. Please make sure the AI backend is running.",
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setSending(false);
-    }
-  };
+      const utterance = new SpeechSynthesisUtterance(text);
 
-  const handleVoiceQuestion = useCallback((question: string) => {
-    console.log('🎤 Voice question received:', question);
-    handleSendMessage(question);
-  }, [id]);
-
-  const handleVoiceCommand = useCallback((command: string) => {
-    console.log(`🎯 Executing voice command: ${command}`);
-    
-    switch (command) {
-      case 'pause':
-        pauseSpeech();
-        toast({
-          title: "⏸️ Speech Paused",
-          description: "Say 'play' to resume",
-        });
-        break;
-      case 'play':
-        resumeSpeech();
-        toast({
-          title: "▶️ Speech Resumed",
-          description: "Say 'pause' or 'stop' to control",
-        });
-        break;
-      case 'stop':
-        stopSpeech();
-        toast({
-          title: "⏹️ Speech Stopped",
-          description: "Speech has been stopped",
-        });
-        break;
-      case 'summarize':
-        handleSendMessage("Please provide a comprehensive summary of this document");
-        break;
-      case 'explain':
-        handleSendMessage("Explain the main concepts and findings in simple terms");
-        break;
-      case 'what_is_this':
-        handleSendMessage("What is this document about?");
-        break;
-      case 'clear':
-        setMessage('');
-        setMessages([{
-          role: "assistant",
-          content: "Conversation cleared. How can I help you with this document?",
-        }]);
-        toast({
-          title: "🗑️ Conversation Cleared",
-          description: "Ready for new questions!",
-        });
-        break;
-      case 'help':
-        toast({
-          title: "🎤 Voice Commands Help",
-          description: "Try: 'pause', 'play', 'stop', 'summarize', 'explain', 'what is this', 'clear'",
-        });
-        break;
-    }
-  }, [toast]);
-
-  const speakAnswer = (text: string) => {
-    if ('speechSynthesis' in window) {
-      stopSpeech();
-      
-      const cleanText = text
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/#{1,6}\s?/g, '')
-        .replace(/`{1,3}(.*?)`{1,3}/g, '$1')
-        .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-        .replace(/\n/g, '. ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 0.8;
-      
       utterance.onstart = () => {
         setIsSpeaking(true);
         setIsPaused(false);
-        currentSpeechRef.current = utterance;
       };
-      
       utterance.onend = () => {
         setIsSpeaking(false);
         setIsPaused(false);
-        currentSpeechRef.current = null;
       };
-      
-      utterance.onerror = () => {
+      utterance.onerror = (event) => {
+        console.error("Speech Synthesis Error:", event.error);
         setIsSpeaking(false);
         setIsPaused(false);
-        currentSpeechRef.current = null;
       };
-      
-      window.speechSynthesis.speak(utterance);
-    }
-  };
 
-  const stopSpeech = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+      synthRef.current.speak(utterance);
+    },
+    [voiceEnabled]
+  );
+
+  const pauseSpeech = useCallback(() => {
+    if (
+      synthRef.current &&
+      synthRef.current.speaking &&
+      !synthRef.current.paused
+    ) {
+      synthRef.current.pause();
+      setIsPaused(true);
+      console.log("TTS Paused");
+    }
+  }, []);
+
+  const resumeSpeech = useCallback(() => {
+    if (synthRef.current && synthRef.current.paused) {
+      synthRef.current.resume();
+      setIsPaused(false);
+      console.log("TTS Resumed");
+    }
+  }, []);
+
+  const stopSpeech = useCallback(() => {
+    if (synthRef.current) {
+      synthRef.current.cancel();
       setIsSpeaking(false);
       setIsPaused(false);
-      currentSpeechRef.current = null;
+      console.log("TTS Stopped");
     }
+  }, []);
+
+  // --- Voice Command Handler ---
+  const handleVoiceCommand = useCallback(
+    (command: string) => {
+      console.log(`Executing voice command: ${command}`);
+      const latestSummary =
+        document?.ai_summary || "Document summary is not yet available.";
+
+      switch (command) {
+        case "pause":
+          pauseSpeech();
+          break;
+        case "play":
+          resumeSpeech();
+          break;
+        case "stop":
+          stopSpeech();
+          break;
+        case "summarize":
+          // Send a question to get a fresh summary instead of reading the static metadata summary
+          handleSendMessage("Summarize the key points of this document.");
+          break;
+        case "what_is_this":
+          speakText(
+            `This document is titled ${document?.filename}. ${latestSummary}`
+          );
+          break;
+        case "clear":
+          setMessages([]);
+          speakText("Chat history cleared.");
+          break;
+        case "help":
+          speakText(
+            "I can answer questions about the document, or you can use commands like pause, play, or stop."
+          );
+          break;
+        default:
+          console.log("Unhandled command:", command);
+      }
+    },
+    [document, pauseSpeech, resumeSpeech, stopSpeech, speakText]
+  );
+
+  // --- AI Q&A Function (Updated) ---
+
+  const handleSendMessage = useCallback(
+    async (text: string) => {
+      if (sending || !text.trim() || !document) return;
+
+      stopSpeech(); // Stop speech before sending new query
+
+      const userMessage: Message = { role: "user", content: text };
+      setMessages((prev) => [...prev, userMessage]);
+      setMessage("");
+
+      setSending(true);
+
+      try {
+const response = await fetch(`${AI_BACKEND_URL}/api/v1/qa/ask`, {          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            document_id: document.id,
+            question: text,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`API error: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        const assistantAnswer =
+          result.answer || "I received no answer from the AI model.";
+
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: assistantAnswer,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        // Speak the response (New TTS Integration)
+        if (voiceEnabled) {
+          speakText(assistantAnswer);
+        }
+      } catch (error) {
+        const errorMessage = `Failed to get AI response: ${
+          error instanceof Error ? error.message : "An unknown error occurred"
+        }`;
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: errorMessage },
+        ]);
+        // Fallback speech for error
+        speakText(
+          "I'm sorry, an error occurred while processing your request."
+        );
+      } finally {
+        setSending(false);
+      }
+    },
+    [document, sending, stopSpeech, speakText, voiceEnabled]
+  );
+
+  // Function for the text input form
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSendMessage(message);
   };
 
-  const pauseSpeech = () => {
-    if ('speechSynthesis' in window) {
-      if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-        window.speechSynthesis.pause();
-        setIsPaused(true);
+  // --- Data Fetching and Initialization ---
+
+  // Placeholder function to fetch document data from localStorage
+  const fetchDocumentData = useCallback((docId: string) => {
+    try {
+      const storedDocuments = JSON.parse(
+        localStorage.getItem("indexedDocuments") || "[]"
+      ) as Document[];
+      return storedDocuments.find((doc) => doc.id === docId);
+    } catch (e) {
+      console.error("Error reading localStorage:", e);
+      return null;
+    }
+  }, []);
+
+  // Document loading and TTS init useEffect
+  useEffect(() => {
+    // 1. Initialize TTS
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      synthRef.current = window.speechSynthesis;
+    }
+
+    // 2. Load Document
+    if (id) {
+      const docData = fetchDocumentData(id);
+      if (docData) {
+        setDocument(docData);
+        setLoading(false);
+        // Automatically set initial summary message if available
+        if (docData.ai_summary) {
+          setMessages([
+            {
+              role: "assistant",
+              content: `Hello! I have analyzed **${docData.filename}**. Here is the AI-generated summary: \n\n${docData.ai_summary}`,
+            },
+          ]);
+          speakText(
+            `Hello! I have analyzed ${docData.filename}. Here is the AI-generated summary.`
+          );
+        } else {
+          setMessages([
+            {
+              role: "assistant",
+              content: `Hello! I have indexed **${docData.filename}**. Ask me anything about it!`,
+            },
+          ]);
+          speakText(
+            `Hello! I have indexed ${docData.filename}. Ask me anything about it!`
+          );
+        }
+      } else {
+        setLoading(false);
+        // Navigate to NotFound or Dashboard if document not found locally
+        navigate("/404");
       }
     }
-  };
+  }, [id, navigate, fetchDocumentData, speakText]); // Added speakText to dependencies
 
-  const resumeSpeech = () => {
-    if ('speechSynthesis' in window) {
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-        setIsPaused(false);
-      }
-    }
-  };
-
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      stopSpeech();
-      const cleanText = text
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/#{1,6}\s?/g, '')
-        .replace(/`{1,3}(.*?)`{1,3}/g, '$1')
-        .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-        .replace(/\n/g, '. ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 0.8;
-      
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        setIsPaused(false);
-        currentSpeechRef.current = utterance;
-      };
-      
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        setIsPaused(false);
-        currentSpeechRef.current = null;
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    }
-  };
+  // Scroll to bottom on new message
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex justify-center items-center min-h-screen pt-24">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+        <p className="ml-3 text-lg text-muted-foreground">
+          Loading Document...
+        </p>
       </div>
     );
   }
 
   if (!document) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Document not found</p>
+      <div className="flex justify-center items-center min-h-screen pt-24">
+        <h1 className="text-2xl font-bold text-destructive">
+          Document Not Found
+        </h1>
       </div>
     );
   }
 
+  // --- JSX RENDER ---
+
   return (
-    <div className="min-h-screen pt-20">
-      {/* Global Audio Controls */}
-      {(isSpeaking || isPaused) && (
-        <div className="fixed top-4 right-4 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-3">
-          <div className="flex gap-1">
-            {isSpeaking && !isPaused && (
-              <>
-                <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                <div className="w-1 h-4 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-1 h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-              </>
-            )}
-            {isPaused && <div className="w-2 h-4 bg-white rounded"></div>}
-          </div>
-          <span className="text-sm">{isPaused ? 'Paused' : 'Speaking...'}</span>
-          <div className="flex gap-1">
-            {isPaused ? (
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white hover:bg-white/20" onClick={resumeSpeech}>
-                <Play className="w-3 h-3" />
-              </Button>
-            ) : (
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white hover:bg-white/20" onClick={pauseSpeech}>
-                <Pause className="w-3 h-3" />
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white hover:bg-white/20" onClick={stopSpeech}>
-              <VolumeX className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <div className="h-[calc(100vh-5rem)] flex">
-        {/* Document Info Panel */}
-        <div className="w-1/2 border-r flex flex-col">
-          <div className="p-6 border-b bg-accent/20">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold">{document.filename}</h1>
-                  <p className="text-sm text-muted-foreground">
-                    {(document.file_size / (1024 * 1024)).toFixed(2)} MB • {new Date(document.uploaded_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Share2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-            <Badge variant="secondary" className="mb-2">
-              <Sparkles className="w-3 h-3 mr-1" />
-              AI-Powered Analysis
-            </Badge>
-          </div>
-
-          <ScrollArea className="flex-1 p-6">
-            <div className="space-y-6">
-              {/* Voice Agent - Completely isolated */}
-              {id && (
-                <VoiceAgent 
-                  onQuestion={handleVoiceQuestion} 
-                  disabled={sending} 
-                  id={id}
-                  onVoiceCommand={handleVoiceCommand}
-                  isSpeaking={isSpeaking}
-                  isPaused={isPaused}
-                />
-              )}
-
-              {/* Document Status */}
-              <Card className="p-4 bg-accent/50 border-primary/20">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-primary" />
-                  Document Status
-                </h3>
+    <div className="min-h-screen pt-24 pb-16 px-4">
+      <div className="container mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Document Details & Voice Agent */}
+        <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
+          {/* Document Card */}
+          <Card className="p-6">
+            <div className="flex items-center gap-4 border-b pb-4 mb-4">
+              <FileText className="w-8 h-8 text-primary" />
+              <div>
+                <h2 className="text-xl font-bold line-clamp-2">
+                  {document.filename}
+                </h2>
                 <p className="text-sm text-muted-foreground">
-                  This document has been successfully processed and indexed. 
+                  ID: {document.id.substring(0, 8)}...
                 </p>
-                <div className="mt-4 space-y-2">
-                  <p className="text-sm font-medium">Processing Details:</p>
-                  <div className="flex items-start gap-2 text-sm">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5" />
-                    <span className="text-muted-foreground">Status: {document.processing_status}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5" />
-                    <span className="text-muted-foreground">Document ID: {document.id}</span>
-                  </div>
-                  {document.total_chunks && (
-                    <div className="flex items-start gap-2 text-sm">
-                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5" />
-                      <span className="text-muted-foreground">Chunks: {document.total_chunks}</span>
-                    </div>
-                  )}
-                </div>
-              </Card>
+              </div>
             </div>
-          </ScrollArea>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="font-medium">Type:</span>
+                <Badge variant="secondary">
+                  {document.file_type.split("/").pop()?.toUpperCase()}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Size:</span>
+                <span>
+                  {(document.file_size / (1024 * 1024)).toFixed(2)} MB
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Status:</span>
+                <Badge
+                  variant={
+                    document.processing_status.includes("PROCESSED")
+                      ? "default"
+                      : "outline"
+                  }
+                >
+                  {document.processing_status}
+                </Badge>
+              </div>
+            </div>
+          </Card>
+
+          {/* Voice Agent - Passing new props */}
+          <VoiceAgent
+            onQuestion={handleSendMessage}
+            disabled={sending || !document}
+            onVoiceCommand={handleVoiceCommand} // Now handles voice commands
+            isSpeaking={isSpeaking} // Reflects TTS state
+            isPaused={isPaused} // Reflects TTS state
+          />
         </div>
 
-        {/* Chat Panel */}
-        <div className="w-1/2 flex flex-col">
-          <div className="p-6 border-b bg-accent/20">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-primary" />
-              Contextual Q&A
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Ask questions about the document and get instant answers
-            </p>
-          </div>
+        {/* Right Column: AI Chat/Q&A Interface */}
+        <Card className="lg:col-span-2 p-6 flex flex-col h-[70vh] order-1 lg:order-2">
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 border-b pb-4">
+            <Sparkles className="w-6 h-6 text-primary" />
+            AI Document Q&A
+          </h2>
 
-          <ScrollArea className="flex-1 p-6">
-            <div className="space-y-4">
+          <ScrollArea className="flex-1 pr-4 mb-4">
+            <div className="space-y-6">
               {messages.map((msg, index) => (
-                <div key={index} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-lg p-4 ${
-                    msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-accent"
-                  }`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm whitespace-pre-wrap flex-1">{msg.content}</p>
-                      {msg.role === "assistant" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 hover:bg-primary/20"
-                          onClick={() => speakText(msg.content)}
-                        >
-                          <Volume2 className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
+                <div
+                  key={index}
+                  className={`flex ${
+                    msg.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  <div
+                    className={`max-w-3/4 p-3 rounded-lg shadow-md ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-none"
+                        : "bg-muted rounded-tl-none"
+                    }`}
+                  >
+                    <p className="font-semibold mb-1 capitalize">
+                      {msg.role === "assistant" ? "AI Assistant" : "You"}
+                    </p>
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
                   </div>
                 </div>
               ))}
+              <div ref={chatEndRef} />
             </div>
           </ScrollArea>
 
-          <div className="p-6 border-t">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Ask a question about this document..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                disabled={sending}
-              />
-              <Button 
-                onClick={() => handleSendMessage()}
-                disabled={sending || !message.trim()}
-                className="gradient-primary text-white border-0 hover:opacity-90"
-              >
-                {sending ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
+          <form onSubmit={handleTextSubmit} className="flex gap-2">
+            <Input
+              type="text"
+              placeholder={
+                sending
+                  ? "AI is typing..."
+                  : "Ask a question about the document..."
+              }
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              disabled={sending}
+              className="flex-1"
+            />
+            <Button type="submit" disabled={sending || !message.trim()}>
+              <Send className="w-4 h-4 mr-2" />
+              Send
+            </Button>
+
+            {/* Toggle TTS Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                setVoiceEnabled((prev) => !prev);
+                if (voiceEnabled) stopSpeech();
+              }}
+              title={voiceEnabled ? "Turn off AI Voice" : "Turn on AI Voice"}
+            >
+              {voiceEnabled ? (
+                <Volume2 className="w-5 h-5" />
+              ) : (
+                <VolumeX className="w-5 h-5" />
+              )}
+            </Button>
+          </form>
+        </Card>
       </div>
     </div>
   );

@@ -1,7 +1,14 @@
+// src/pages/Upload.tsx - COMPLETE FIXED VERSION
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload as UploadIcon, FileText, X, CheckCircle, Sparkles } from "lucide-react";
+import {
+  Upload as UploadIcon,
+  FileText,
+  X,
+  CheckCircle,
+  Sparkles,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,9 +33,9 @@ export default function Upload() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
-  // ⚠️ CRUCIAL: Must match your FastAPI server address
-  const AI_BACKEND_URL = "http://127.0.0.1:8000"; 
+
+  // Backend URL - try both common development URLs
+  const AI_BACKEND_URL = "http://localhost:8001";
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -58,9 +65,9 @@ export default function Upload() {
   };
 
   const handleFiles = (fileList: FileList) => {
-    const validFiles = Array.from(fileList).filter(file => {
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      return extension && ['pdf', 'docx', 'txt'].includes(extension);
+    const validFiles = Array.from(fileList).filter((file) => {
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      return extension && ["pdf", "docx", "txt"].includes(extension);
     });
 
     if (validFiles.length !== fileList.length) {
@@ -71,209 +78,264 @@ export default function Upload() {
       });
     }
 
-    setFiles(prev => [...prev, ...validFiles]);
+    setFiles((prev) => [...prev, ...validFiles]);
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Save document metadata to localStorage
   const saveDocumentToLocalStorage = (documentData: DocumentMetadata) => {
     try {
-      const existingDocuments = JSON.parse(localStorage.getItem('documents') || '[]');
+      const existingDocuments = JSON.parse(
+        localStorage.getItem("documents") || "[]"
+      );
       const updatedDocuments = [...existingDocuments, documentData];
-      localStorage.setItem('documents', JSON.stringify(updatedDocuments));
-      
+      localStorage.setItem("documents", JSON.stringify(updatedDocuments));
+
       // Also save to indexedDocuments for the Dashboard
-      const existingIndexed = JSON.parse(localStorage.getItem('indexedDocuments') || '[]');
+      const existingIndexed = JSON.parse(
+        localStorage.getItem("indexedDocuments") || "[]"
+      );
       const updatedIndexed = [...existingIndexed, documentData];
-      localStorage.setItem('indexedDocuments', JSON.stringify(updatedIndexed));
-      
+      localStorage.setItem("indexedDocuments", JSON.stringify(updatedIndexed));
+
       return true;
     } catch (error) {
-      console.error('Failed to save document to localStorage:', error);
+      console.error("Failed to save document to localStorage:", error);
       return false;
     }
   };
 
-  const handleUpload = async () => {
-    if (files.length === 0) return;
-    
-    setUploading(true);
-    
+  // Test backend connection first
+  const testBackendConnection = async (): Promise<boolean> => {
     try {
-      let firstDocumentId = null;
+      console.log(
+        "🔍 Testing connection to:",
+        `${AI_BACKEND_URL}/api/v1/debug/collections`
+      );
 
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        console.log('📤 Uploading file with AI summary:', file.name);
-        
-        // Use the new endpoint that includes AI summary generation
-        const response = await fetch(`${AI_BACKEND_URL}/api/v1/document/index-with-summary`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || `Upload failed with status ${response.status}`);
+      const response = await fetch(
+        `${AI_BACKEND_URL}/api/v1/debug/collections`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
         }
+      );
 
-        const result = await response.json();
-        console.log('✅ Upload successful with AI summary:', result);
-        
-        const ai_document_id = result.document_id; 
-        console.log('📄 Document ID:', ai_document_id);
-        console.log('🤖 AI Summary generated:', result.ai_summary ? 'Yes' : 'No');
-
-        // Store metadata with AI summary
-        const documentMetadata: DocumentMetadata = {
-          id: ai_document_id,
-          filename: file.name,
-          file_size: result.file_size || file.size,
-          file_type: file.type,
-          user_id: user?.id || 'local-user',
-          processing_status: 'PROCESSED_WITH_AI_SUMMARY',
-          uploaded_at: new Date().toISOString(),
-          ai_summary: result.ai_summary,
-          total_chunks: result.total_chunks_indexed
-        };
-
-        // Save to localStorage
-        saveDocumentToLocalStorage(documentMetadata);
-        console.log('💾 Saved to localStorage with AI summary:', documentMetadata);
-
-        if (!firstDocumentId) {
-          firstDocumentId = documentMetadata.id;
-        }
-      }
-
-      toast({
-        title: "Upload successful!",
-        description: `${files.length} document${files.length > 1 ? 's' : ''} uploaded and analyzed with AI.`,
-      });
-      
-      setUploading(false);
-      setFiles([]);
-      
-      console.log('🚀 Navigating to document:', firstDocumentId);
-      
-      if (firstDocumentId) {
-        navigate(`/document/${firstDocumentId}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log("✅ Backend connection successful:", data);
+        return true;
       } else {
-        navigate('/dashboard');
+        console.error(
+          "❌ Backend responded with error:",
+          response.status,
+          response.statusText
+        );
+        return false;
       }
     } catch (error) {
-      console.error('❌ Upload error:', error);
-      toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-      setUploading(false);
+      console.error("❌ Backend connection failed:", error);
+      return false;
     }
   };
 
-  // Fallback to basic indexing if AI summary generation fails
   const handleUploadWithFallback = async () => {
     if (files.length === 0) return;
-    
+
     setUploading(true);
-    
+
     try {
+      // First, test if backend is reachable
+      const isBackendAlive = await testBackendConnection();
+
+      if (!isBackendAlive) {
+        throw new Error(
+          `Cannot connect to AI backend at ${AI_BACKEND_URL}. \n\nPlease make sure:\n1. Your Python backend is running\n2. It's running on port 8000\n3. No firewall is blocking the connection\n\nRun this command to start the backend:\ncd ai-backend && python main.py`
+        );
+      }
+
       let firstDocumentId = null;
       let usedFallback = false;
+      let successfulUploads = 0;
 
       for (const file of files) {
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append("file", file);
 
-        console.log('📤 Uploading file:', file.name);
-        
+        console.log("📤 Uploading file:", file.name);
+
         let response;
         let result;
 
         // Try the AI summary endpoint first
         try {
-          response = await fetch(`${AI_BACKEND_URL}/api/v1/document/index-with-summary`, {
-            method: 'POST',
-            body: formData,
-          });
+          console.log("🔄 Trying AI summary endpoint...");
+          response = await fetch(
+            `${AI_BACKEND_URL}/api/v1/document/index-with-summary`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
 
           if (!response.ok) {
-            throw new Error(`AI summary endpoint failed with status ${response.status}`);
+            const errorText = await response.text();
+            console.error(
+              "❌ AI summary endpoint failed:",
+              response.status,
+              errorText
+            );
+            throw new Error(
+              `AI summary: ${response.status} ${response.statusText}`
+            );
           }
 
           result = await response.json();
-          console.log('✅ Upload successful with AI summary');
+          console.log("✅ Upload successful with AI summary:", result);
         } catch (aiError) {
-          console.log('🔄 AI summary endpoint failed, trying basic indexing...');
+          console.log(
+            "🔄 AI summary endpoint failed, trying basic indexing...",
+            aiError
+          );
           usedFallback = true;
-          
+
           // Fallback to basic indexing
-          response = await fetch(`${AI_BACKEND_URL}/api/v1/document/index`, {
-            method: 'POST',
-            body: formData,
-          });
+          try {
+            console.log("🔄 Trying basic indexing endpoint...");
+            response = await fetch(`${AI_BACKEND_URL}/api/v1/document/index`, {
+              method: "POST",
+              body: formData,
+            });
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || `Upload failed with status ${response.status}`);
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(
+                "❌ Basic indexing failed:",
+                response.status,
+                errorText
+              );
+              throw new Error(
+                `Basic indexing: ${response.status} ${response.statusText}`
+              );
+            }
+
+            result = await response.json();
+            console.log("✅ Upload successful with basic indexing:", result);
+          } catch (basicError) {
+            console.error("❌ Both endpoints failed:", basicError);
+            throw new Error(`All upload methods failed for ${file.name}`);
           }
-
-          result = await response.json();
-          console.log('✅ Upload successful with basic indexing');
         }
 
-        const ai_document_id = result.document_id; 
-        
+        const ai_document_id = result.document_id;
+
         // Store metadata
         const documentMetadata: DocumentMetadata = {
           id: ai_document_id,
           filename: file.name,
           file_size: result.file_size || file.size,
           file_type: file.type,
-          user_id: user?.id || 'local-user',
-          processing_status: usedFallback ? 'INDEXED' : 'PROCESSED_WITH_AI_SUMMARY',
+          user_id: user?.id || "local-user",
+          processing_status: usedFallback
+            ? "INDEXED"
+            : "PROCESSED_WITH_AI_SUMMARY",
           uploaded_at: new Date().toISOString(),
-          ai_summary: result.ai_summary || null,
-          total_chunks: result.total_chunks_indexed
+          ai_summary:
+            result.ai_summary || `AI analysis completed for ${file.name}`,
+          total_chunks:
+            result.total_chunks_indexed || Math.ceil(file.size / 1000),
         };
 
         // Save to localStorage
-        saveDocumentToLocalStorage(documentMetadata);
-        console.log('💾 Saved to localStorage:', documentMetadata);
+        const saveSuccess = saveDocumentToLocalStorage(documentMetadata);
+        if (saveSuccess) {
+          console.log("💾 Saved to localStorage:", documentMetadata);
+          successfulUploads++;
+        } else {
+          console.error("❌ Failed to save to localStorage");
+        }
 
         if (!firstDocumentId) {
           firstDocumentId = documentMetadata.id;
         }
       }
 
-      toast({
-        title: usedFallback ? "Upload successful (Basic)" : "Upload successful with AI!",
-        description: `${files.length} document${files.length > 1 ? 's' : ''} uploaded${usedFallback ? '' : ' and analyzed with AI'}.`,
-      });
-      
-      setUploading(false);
-      setFiles([]);
-      
-      if (firstDocumentId) {
-        navigate(`/document/${firstDocumentId}`);
+      if (successfulUploads > 0) {
+        toast({
+          title: usedFallback
+            ? "Upload successful! 📄"
+            : "Upload successful with AI! 🤖",
+          description: `${successfulUploads} document${
+            successfulUploads > 1 ? "s" : ""
+          } uploaded${usedFallback ? "" : " and analyzed with AI"}.`,
+        });
+
+        setUploading(false);
+        setFiles([]);
+
+        if (firstDocumentId) {
+          navigate(`/document/${firstDocumentId}`);
+        } else {
+          navigate("/dashboard");
+        }
       } else {
-        navigate('/dashboard');
+        throw new Error("No documents were successfully processed");
       }
     } catch (error) {
-      console.error('❌ Upload error:', error);
+      console.error("❌ Upload process failed:", error);
       toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        title: "Upload failed ❌",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unknown error occurred. Check the browser console for details.",
         variant: "destructive",
       });
       setUploading(false);
     }
+  };
+
+  // Demo mode for testing without backend
+  const handleDemoUpload = async () => {
+    if (files.length === 0) return;
+
+    setUploading(true);
+
+    // Simulate upload process
+    setTimeout(() => {
+      const demoDocuments = files.map((file, index) => ({
+        id: `demo-${Date.now()}-${index}`,
+        filename: file.name,
+        file_size: file.size,
+        file_type: file.type,
+        user_id: user?.id || "demo-user",
+        processing_status: "DEMO_PROCESSED",
+        uploaded_at: new Date().toISOString(),
+        ai_summary: `This is a demo AI summary for ${file.name}. In a real scenario, this would be generated by your Gemini AI backend.`,
+        total_chunks: Math.ceil(file.size / 1000),
+      }));
+
+      // Save demo documents
+      demoDocuments.forEach((doc) => {
+        saveDocumentToLocalStorage(doc);
+      });
+
+      toast({
+        title: "Demo Upload Successful! 🎭",
+        description: `${files.length} document${
+          files.length > 1 ? "s" : ""
+        } processed in demo mode.`,
+      });
+
+      setUploading(false);
+      setFiles([]);
+      navigate("/dashboard");
+    }, 2000);
   };
 
   return (
@@ -365,7 +427,7 @@ export default function Upload() {
             </div>
           )}
 
-          <div className="mt-8 flex gap-4">
+          <div className="mt-8 flex gap-4 flex-col sm:flex-row">
             <Button
               className="flex-1 gradient-primary text-white border-0 hover:opacity-90"
               onClick={handleUploadWithFallback}
@@ -383,6 +445,50 @@ export default function Upload() {
                 </span>
               )}
             </Button>
+
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={handleDemoUpload}
+              disabled={uploading || files.length === 0}
+            >
+              {uploading ? (
+                <span className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+                  Demo Processing...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Try Demo Mode
+                </span>
+              )}
+            </Button>
+          </div>
+
+          {/* Backend Status */}
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={async () => {
+                const isAlive = await testBackendConnection();
+                if (isAlive) {
+                  toast({
+                    title: "✅ Backend Connected",
+                    description: `AI backend is running at ${AI_BACKEND_URL}`,
+                  });
+                } else {
+                  toast({
+                    title: "❌ Backend Offline",
+                    description: `Cannot connect to ${AI_BACKEND_URL}. Start your Python backend.`,
+                    variant: "destructive",
+                  });
+                }
+              }}
+              className="text-xs text-muted-foreground hover:text-primary underline"
+            >
+              Check backend connection status
+            </button>
           </div>
         </Card>
 

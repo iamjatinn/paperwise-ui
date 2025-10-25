@@ -1,73 +1,105 @@
-# Welcome to your Lovable project
+# 📄 Paperwise - AI Document Intelligence Platform
 
-## Project info
+![Paperwise](https://img.shields.io/badge/Paperwise-AI%20Document%20Processing-blue)
+![React](https://img.shields.io/badge/React-18.2+-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript)
 
-**URL**: https://lovable.dev/projects/43875f62-611d-494f-85ca-3edb409f23ed
+A modern, AI-powered document analysis platform that transforms lengthy documents into actionable insights. Upload, summarize, and interact with your documents using advanced AI technology.
 
-## How can I edit this code?
+## ✨ Features
 
-There are several ways of editing your application.
+- **📁 Multi-Format Support** - Upload DOCX, PDF, and TXT files
+- **🤖 AI-Powered Summarization** - Intelligent section-wise document analysis
+- **💬 Contextual Q&A** - Ask questions and get precise answers with document references
+- **🎤 Voice-Controlled Interface** - Hands-free document interaction with speech commands
+- **🔍 Multi-Document Analysis** - Compare and analyze multiple documents simultaneously
+- **🎨 Modern UI/UX** - Beautiful, responsive design with dark/light mode
+- **⚡ Real-time Processing** - Instant AI responses and document insights
 
-**Use Lovable**
+## 🚀 Quick Start
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/43875f62-611d-494f-85ca-3edb409f23ed) and start prompting.
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/paperwise.git
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# Navigate to project directory
+cd paperwise
 
-Follow these steps:
+# Install dependencies
+npm install
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
-```
+Open http://localhost:8080 to view it in the browser.
 
-**Edit a file directly in GitHub**
+🛠 Tech Stack
+Frontend: React 18 + TypeScript
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Styling: Tailwind CSS + shadcn/ui
 
-**Use GitHub Codespaces**
+Build Tool: Vite
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Animations: Framer Motion
 
-## What technologies are used for this project?
+Routing: React Router
 
-This project is built with:
+State Management: TanStack Query
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Icons: Lucide React
 
-## How can I deploy this project?
+📁 Project Structure
+text
+paperwise/
+├── src/
+│   ├── components/     # Reusable UI components
+│   ├── pages/         # Page components
+│   ├── hooks/         # Custom React hooks
+│   ├── App.tsx        # Main app component
+│   └── main.tsx       # Entry point
+├── public/            # Static assets
+└── package.json       # Dependencies and scripts
 
-Simply open [Lovable](https://lovable.dev/projects/43875f62-611d-494f-85ca-3edb409f23ed) and click on Share -> Publish.
+🎯 Key Components
+Navbar - Premium 3D animated navigation with Paperwise branding
 
-## Can I connect a custom domain to my Lovable project?
+Dashboard - Document management with AI insights and analytics
 
-Yes, you can!
+DocumentViewer - Interactive Q&A interface with voice control
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Upload - Drag-and-drop document upload with progress tracking
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+MultiDocumentQA - Cross-document analysis and comparison
+
+🎨 UI/UX Features
+Modern Design System - Consistent, accessible component library
+
+Dark/Light Mode - Full theme support with system preference detection
+
+Responsive Layout - Optimized for desktop, tablet, and mobile
+
+Smooth Animations - Engaging micro-interactions and page transitions
+
+Glassmorphism Effects - Contemporary visual design elements
+
+🔧 Development
+bash
+# Development server with hot reload
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+
+# Lint code
+npm run lint
+🤝 Contributing
+We welcome contributions! Please feel free to submit pull requests or open issues for bugs and feature requests.
+

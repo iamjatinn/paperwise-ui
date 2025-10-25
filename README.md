@@ -15,7 +15,7 @@ A modern, AI-powered document analysis platform that transforms lengthy document
 
 
 # Clone the repository
-git clone https://github.com/iamjatinn/paperwise.git
+git clone https://github.com/iamjatinn/paperwise-ui.git
 
 # Navigate to project directory
 cd paperwise
